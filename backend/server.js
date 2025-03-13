@@ -1,44 +1,74 @@
 const express = require("express");
 const cors = require("cors");
+const mysql = require("mysql2");
+
+
 
 const app = express();
-
 app.use(cors());
 app.use(express.json()); // Allows Parsing of JSON request bodies
 
-const items = [
-  { id: 1, name: "Item 1" },
-  { id: 2, name: "Item 2" },
-  { id: 3, name: "Item 3" },
-];
+// MYSQL Connection
 
-// GET: retrived all items
-app.get("/api/items", (req, res) => {
-  res.json(items);
+const db = mysql.createConnection({
+  host: 'localhost',
+  user: 'root',
+  password: '',
+  database: 'react_express_db'
 });
 
-// this is for POST: add new item
-app.post("/api/items", (req, res) => {
-  const newItem = { id: items.length + 1, name: req.body.name };
-  items.push(newItem);
-  res.status(201).json(newItem);
+db.connect(err => {
+  if(err) throw err;
+  console.log("MySQL connected...")
 });
 
-// PUT: update an item
 
-app.put("/api/items/:id", (req, res) => {
-  const item = items.find((i) => i.id === parseInt(req.params.id));
-  if (!item) return res.status(404).json({ message: "Item not found" });
+// GET ALL ITEMS IN THE DATABASE
 
-  item.name = req.body.name;
-  res.json(item);
+app.get('/api/items', (req, res) =>{
+    db.query("SELECT * FROM items", (err, results)=> {
+      if(err) throw err;
+      res.json(results);
+    });
 });
 
-app.delete("/api/items/:id", (req, res) => {
-  const index = items.findIndex((i) => i.id === parseInt(req.params.id));
-  items.splice(index, 1);
-  res.json({ message: "Item deleted" });
+
+
+// PUT: UPDATE AN ITEM
+
+app.put('/api/items/:id', (req, res) =>{
+    const { id } = req.params;
+    const { name, last_name } = req.body;
+
+    db.query("UPDATE items SET name = ?, last_name = ? WHERE id = ?", [name, last_name, id], (err) =>{
+      if(err) throw err;
+      res.json({id, name, last_name});
+    });
 });
+
+
+app.post('/api/items', (req, res) =>{
+      const {name, last_name} = req.body;
+      db.query("INSERT INTO items (name, last_name) VALUES (?, ?)", [name, last_name], (err, result) =>{
+        if(err) throw err;
+        res.json({ id: result.insertId, name, last_name})
+      });
+});
+
+
+// DELETE: remove an Item
+
+
+app.delete('/api/items/:id', (req, res) =>{
+  const { id } = req.params;
+  db.query("DELETE FROM items WHERE id = ?", [id], (err)=>{
+    if(err) throw err;
+    res.json({message: "Item deleted"});
+  });
+});
+
+
+
 
 const PORT = 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
